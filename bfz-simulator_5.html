@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BFZ Simulátor tímov 2026/2027</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+  header {
+    background: #1a1a2e; color: #fff; padding: 16px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); flex-wrap: wrap; gap: 10px;
+  }
+  header .logo { font-size: 24px; font-weight: 900; letter-spacing: -1px; color: #4caf50; }
+  header .subtitle { font-size: 12px; color: #aaa; margin-top: 2px; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed #4caf50; border-radius: 10px; padding: 14px 20px;
+    background: rgba(76,175,80,0.06); cursor: pointer;
+    display: flex; align-items: center; gap: 10px; transition: background 0.15s;
+    min-width: 260px;
+  }
+  .upload-zone:hover { background: rgba(76,175,80,0.12); }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 22px; }
+  .upload-text { font-size: 12px; color: #ccc; line-height: 1.4; }
+  .upload-text strong { color: #4caf50; display: block; font-size: 13px; }
+  .upload-status { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+  .main { max-width: 1500px; margin: 0 auto; padding: 20px 20px; }
+
+  /* CONTROLS */
+  .controls {
+    background: #fff; border-radius: 10px; padding: 16px 20px;
+    margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .controls-label { font-weight: 700; font-size: 13px; color: #555; white-space: nowrap; }
+
+  .team-toggle {
+    display: flex; align-items: center; gap: 6px;
+    background: #f5f5f5; border: 2px solid #ddd; border-radius: 8px;
+    padding: 6px 12px; cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .team-toggle input { display: none; }
+  .team-toggle .tag { font-weight: 800; font-size: 15px; color: #aaa; }
+  .team-toggle .years { font-size: 10px; color: #aaa; line-height: 1.2; }
+  .team-toggle.active { border-color: var(--tc); background: #fff; color: var(--tc); }
+  .team-toggle.active .tag, .team-toggle.active .years { color: var(--tc); }
+
+  .t-u6  { --tc: #8e44ad; } .t-u7  { --tc: #2980b9; } .t-u8  { --tc: #16a085; }
+  .t-u9  { --tc: #27ae60; } .t-u10 { --tc: #f39c12; } .t-u11 { --tc: #e67e22; }
+  .t-u12 { --tc: #e74c3c; } .t-u13 { --tc: #c0392b; } .t-u14 { --tc: #922b21; }
+  .t-u15 { --tc: #6e2f1a; } .t-u16 { --tc: #4a235a; } .t-u17 { --tc: #1a3a5c; }
+
+  .divider { width: 1px; height: 32px; background: #e0e0e0; margin: 0 4px; }
+
+  .right-controls { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .hosting-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #555; cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .hosting-toggle input { width: 15px; height: 15px; cursor: pointer; }
+  .sort-control {
+    font-size: 12px; padding: 5px 8px; border: 1px solid #ddd;
+    border-radius: 6px; background: #fafafa; cursor: pointer;
+  }
+
+  /* SUMMARY */
+  .summary-bar {
+    background: #1a1a2e; color: #fff; border-radius: 10px;
+    padding: 12px 20px; margin-bottom: 16px;
+    display: none; gap: 20px; flex-wrap: wrap; align-items: center; font-size: 13px;
+  }
+  .summary-item .summary-num { font-size: 22px; font-weight: 900; line-height: 1; }
+  .summary-item .summary-label { color: #aaa; font-size: 10px; }
+  .sep { color: #444; }
+
+  /* GRID */
+  .teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+
+  .team-card {
+    background: #fff; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 4px solid var(--tc);
+  }
+  .team-header {
+    padding: 12px 14px 8px; border-bottom: 1px solid #f0f0f0;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .team-name { font-size: 20px; font-weight: 900; color: var(--tc); }
+  .team-years-label { font-size: 11px; color: #888; margin-top: 1px; }
+  .count-num { font-size: 28px; font-weight: 900; color: var(--tc); line-height: 1; }
+  .count-label { font-size: 10px; color: #aaa; text-align: right; }
+
+  .team-warning {
+    background: #fff3cd; border-left: 3px solid #f39c12;
+    padding: 5px 12px; font-size: 11px; color: #856404;
+  }
+  .team-warning.ok { background: #d4edda; border-color: #28a745; color: #155724; }
+
+  .player-list { padding: 6px 0; max-height: 340px; overflow-y: auto; }
+  .section-title {
+    font-size: 11px; font-weight: 700; color: #bbb;
+    text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 14px 2px;
+  }
+  .player-row {
+    display: flex; align-items: center; padding: 5px 14px;
+    font-size: 12px; border-bottom: 1px solid #fafafa; gap: 6px;
+  }
+  .player-row:last-child { border-bottom: none; }
+  .player-row:hover { background: #f9f9f9; }
+  .player-name { flex: 1; font-weight: 600; }
+  .player-year { font-size: 11px; color: #999; min-width: 30px; text-align: right; }
+  .player-badge { font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 700; }
+  .badge-host { background: #fff3cd; color: #856404; }
+  .badge-girl { background: #f8d7f5; color: #7a1a75; }
+
+  /* UNASSIGNED */
+  .unassigned-card {
+    background: #fff; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 4px solid #bbb; margin-top: 14px;
+  }
+  .unassigned-header {
+    padding: 12px 14px 8px; border-bottom: 1px solid #f0f0f0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .unassigned-title { font-size: 15px; font-weight: 800; color: #888; }
+  .unassigned-count { font-size: 22px; font-weight: 900; color: #bbb; }
+
+  .no-teams { text-align: center; padding: 60px 20px; color: #aaa; font-size: 15px; }
+
+  /* IMPORT LOG */
+  .import-log {
+    background: #1e2a1e; border-radius: 8px; padding: 10px 14px;
+    font-size: 11px; color: #7ec87e; font-family: monospace;
+    margin-bottom: 14px; display: none; max-height: 100px; overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">⚽ BFZ Simulátor</div>
+    <div class="subtitle">Sezóna 2026/2027 — MFK Most pri Bratislave mládež</div>
+  </div>
+  <label class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept=".xlsx" multiple onchange="handleFiles(this.files)">
+    <div class="upload-icon">📂</div>
+    <div class="upload-text">
+      <strong>Nahrať Excel súpisky</strong>
+      Pretiahni .xlsx súbory sem alebo klikni
+      <span class="upload-status" id="upload-status">Aktuálne načítané: vstavané dáta (98 hráčov)</span>
+    </div>
+  </label>
+</header>
+
+<div class="main">
+  <div class="controls">
+    <span class="controls-label">Prihlásené tímy:</span>
+
+    <label class="team-toggle t-u6"  id="toggle-u6" ><input type="checkbox" onchange="render()"><div><div class="tag">U6</div><div class="years">2021+</div></div></label>
+    <label class="team-toggle t-u7"  id="toggle-u7" ><input type="checkbox" onchange="render()"><div><div class="tag">U7</div><div class="years">2020+</div></div></label>
+    <label class="team-toggle t-u8"  id="toggle-u8" ><input type="checkbox" onchange="render()"><div><div class="tag">U8</div><div class="years">2019+</div></div></label>
+    <label class="team-toggle t-u9"  id="toggle-u9" ><input type="checkbox" onchange="render()"><div><div class="tag">U9</div><div class="years">2018+</div></div></label>
+    <label class="team-toggle t-u10" id="toggle-u10"><input type="checkbox" onchange="render()"><div><div class="tag">U10</div><div class="years">2017+</div></div></label>
+    <label class="team-toggle t-u11" id="toggle-u11"><input type="checkbox" onchange="render()"><div><div class="tag">U11</div><div class="years">2016+</div></div></label>
+    <label class="team-toggle t-u12" id="toggle-u12"><input type="checkbox" onchange="render()"><div><div class="tag">U12</div><div class="years">2015+</div></div></label>
+    <div class="divider"></div>
+    <label class="team-toggle t-u13" id="toggle-u13"><input type="checkbox" onchange="render()"><div><div class="tag">U13</div><div class="years">2014+</div></div></label>
+    <label class="team-toggle t-u14" id="toggle-u14"><input type="checkbox" onchange="render()"><div><div class="tag">U14</div><div class="years">2013+</div></div></label>
+    <label class="team-toggle t-u15" id="toggle-u15"><input type="checkbox" onchange="render()"><div><div class="tag">U15</div><div class="years">2012+</div></div></label>
+    <label class="team-toggle t-u16" id="toggle-u16"><input type="checkbox" onchange="render()"><div><div class="tag">U16</div><div class="years">2011+</div></div></label>
+    <label class="team-toggle t-u17" id="toggle-u17"><input type="checkbox" onchange="render()"><div><div class="tag">U17</div><div class="years">2010+</div></div></label>
+
+    <div class="right-controls">
+      <label class="hosting-toggle" title="Hráč môže hrať aj o 1 kategóriu vyššie">
+        <input type="checkbox" id="hosting-cb" onchange="render()" checked> Ostaršenie
+      </label>
+      <select class="sort-control" id="sort-select" onchange="render()">
+        <option value="alpha">A → Z</option>
+        <option value="year">Rok nar.</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="import-log" class="import-log"></div>
+  <div id="summary-bar" class="summary-bar"></div>
+  <div id="output"></div>
+</div>
+
+<script>
+// ── KATEGÓRIE ────────────────────────────────────────────────────────────────
+// BFZ 2026/2027: vek sa počíta k 31.12.2026
+// U9 = max 9 rokov → nar. min. 2017, atď.
+const CATEGORIES = [
+  { id:"U6",  color:"#8e44ad", minYear:2021 },
+  { id:"U7",  color:"#2980b9", minYear:2020 },
+  { id:"U8",  color:"#16a085", minYear:2019 },
+  { id:"U9",  color:"#27ae60", minYear:2018 },
+  { id:"U10", color:"#f39c12", minYear:2017 },
+  { id:"U11", color:"#e67e22", minYear:2016 },
+  { id:"U12", color:"#e74c3c", minYear:2015 },
+  { id:"U13", color:"#c0392b", minYear:2014 },
+  { id:"U14", color:"#922b21", minYear:2013 },
+  { id:"U15", color:"#6e2f1a", minYear:2012 },
+  { id:"U16", color:"#4a235a", minYear:2011 },
+  { id:"U17", color:"#1a3a5c", minYear:2010 },
+];
+
+// Funkcia: prirodzená kategória hráča
+// CATEGORIES: U6(minYear=2021) ... U17(minYear=2010) — od najvyššieho po najnižší minYear
+// Hráč nar. 2017 patrí do U10(minYear=2017):
+// ideme od U6 dole, prvá kategória kde minYear <= birthYear je správna
+function naturalCatId(birthYear, gender) {
+  const y = gender === "F" ? birthYear + 1 : birthYear;
+  for (let i = 0; i < CATEGORIES.length; i++) {
+    if (CATEGORIES[i].minYear <= y) return CATEGORIES[i].id;
+  }
+  return null;
+}
+
+function getYear(dob) { return parseInt(String(dob).split("-")[0]); }
+
+// ── VSTAVATÉ DÁTA ─────────────────────────────────────────────────────────────
+const BUILTIN_PLAYERS = [
+  // U9 (aktualizovaná súpiska jún 2026)
+  {n:"Čonka Matej",dob:"2017-05-22",g:"M"},
+  {n:"Gubran Marcus",dob:"2017-05-27",g:"M"},
+  {n:"Halgát Tobias",dob:"2018-01-01",g:"M"},
+  {n:"Kuška Samuel",dob:"2017-08-21",g:"M"},
+  {n:"Lazok Pavol",dob:"2018-07-23",g:"M"},
+  {n:"Mach Matej",dob:"2017-08-07",g:"M"},
+  {n:"Maňáková Linda",dob:"2017-07-16",g:"F"},
+  {n:"Ondrášik Filip",dob:"2016-09-14",g:"M"},
+  {n:"Pápay Matias",dob:"2018-10-21",g:"M"},
+  {n:"Paulič Adam",dob:"2017-09-19",g:"M"},
+  {n:"Pavlík Sebastián",dob:"2017-08-09",g:"M"},
+  {n:"Petrík Samuel",dob:"2017-06-12",g:"M"},
+  {n:"Reznák Tomáš",dob:"2017-11-07",g:"M"},
+  {n:"Saleh Amir",dob:"2018-03-21",g:"M"},
+  {n:"Sidó Jakub",dob:"2018-04-04",g:"M"},
+  {n:"Šiška Adam",dob:"2018-01-01",g:"M"},
+  {n:"Šopor Martin",dob:"2017-07-16",g:"M"},
+  {n:"Štefanov Alex",dob:"2017-04-10",g:"M"},
+  {n:"Šurina Jakub",dob:"2018-10-02",g:"M"},
+  {n:"Topor Kristián",dob:"2017-07-31",g:"M"},
+  {n:"Vávra Michal",dob:"2019-05-16",g:"M"},
+  {n:"Velasco Lucas",dob:"2018-03-02",g:"M"},
+  {n:"Vengrín Juraj",dob:"2017-03-10",g:"M"},
+  // U11
+  {n:"Adamov Lucas",dob:"2015-12-29",g:"M"},
+  {n:"Bláha Jakub",dob:"2015-09-22",g:"M"},
+  {n:"Blaštík Dominik",dob:"2015-12-14",g:"M"},
+  {n:"Čížik Martin",dob:"2015-11-13",g:"M"},
+  {n:"Lovás Sebastian",dob:"2015-04-20",g:"M"},
+  {n:"Maňák Michal",dob:"2015-03-12",g:"M"},
+  {n:"Pápay Manuel",dob:"2016-07-04",g:"M"},
+  {n:"Pluhár Mathias",dob:"2016-02-09",g:"M"},
+  {n:"Popovych Dmytro",dob:"2015-12-06",g:"M"},
+  {n:"Vávra Matúš",dob:"2015-03-15",g:"M"},
+  {n:"Vávra Milan",dob:"2016-01-19",g:"M"},
+  // U15/U16
+  {n:"Bsaissa Nidal",dob:"2011-11-15",g:"M"},
+  {n:"Drozd Alexander",dob:"2011-01-01",g:"M"},
+  {n:"Dúbravka Dávid",dob:"2011-01-01",g:"M"},
+  {n:"Faix Filip",dob:"2011-07-28",g:"M"},
+  {n:"Glasnak Filip",dob:"2013-03-24",g:"M"},
+  {n:"Hecht Jakub",dob:"2012-05-25",g:"M"},
+  {n:"Homola Lucas",dob:"2012-08-14",g:"M"},
+  {n:"Kollár Artur",dob:"2011-09-05",g:"M"},
+  {n:"Košťany Ondrej",dob:"2011-09-18",g:"M"},
+  {n:"Kovalinka Richard",dob:"2012-10-02",g:"M"},
+  {n:"Kubín Derek",dob:"2011-08-02",g:"M"},
+  {n:"Macháč Michal",dob:"2011-04-27",g:"M"},
+  {n:"Mravík Samuel",dob:"2012-08-26",g:"M"},
+  {n:"Mrva Nikolas",dob:"2013-06-24",g:"M"},
+  {n:"Orság Tomáš",dob:"2011-08-27",g:"M"},
+  {n:"Paulík Jakub",dob:"2012-10-11",g:"M"},
+  {n:"Petráš Marek",dob:"2011-12-19",g:"M"},
+  {n:"Petrík Markus",dob:"2011-04-11",g:"M"},
+  {n:"Rossa Oskar",dob:"2011-01-01",g:"M"},
+  {n:"Šimon René",dob:"2011-02-26",g:"M"},
+  {n:"Šotník Maximilián",dob:"2011-09-15",g:"M"},
+  {n:"Vasil Matúš",dob:"2013-01-01",g:"M"},
+  // U13
+  {n:"Barát Miroslav",dob:"2015-08-02",g:"M"},
+  {n:"Barta Dinko",dob:"2014-02-21",g:"M"},
+  {n:"Brunclík Bruno",dob:"2014-11-12",g:"M"},
+  {n:"Čonka Daniel",dob:"2015-02-04",g:"M"},
+  {n:"Elznic Dominik",dob:"2014-09-04",g:"M"},
+  {n:"Fulier Samuel",dob:"2014-06-09",g:"M"},
+  {n:"Fulier Timotej",dob:"2016-04-17",g:"M"},
+  {n:"Gažo Daniel",dob:"2013-12-17",g:"M"},
+  {n:"Hamšík Matúš",dob:"2015-12-09",g:"M"},
+  {n:"Janega Jakub",dob:"2014-06-14",g:"M"},
+  {n:"Kolár Michal",dob:"2013-04-18",g:"M"},
+  {n:"Kostrec Dávid",dob:"2013-09-20",g:"M"},
+  {n:"Kozmer Liam",dob:"2014-09-08",g:"M"},
+  {n:"Michta Pavol",dob:"2015-08-29",g:"M"},
+  {n:"Mokren Nicolas",dob:"2015-07-01",g:"M"},
+  {n:"Nagy Július",dob:"2013-07-06",g:"M"},
+  {n:"Ťapuška Alex",dob:"2013-08-12",g:"M"},
+  {n:"Urban Alex",dob:"2012-09-08",g:"M"},
+  {n:"Urgas Tomáš",dob:"2014-04-23",g:"M"},
+  {n:"Urva Juraj",dob:"2013-10-04",g:"M"},
+  {n:"Wágner Alex",dob:"2014-05-13",g:"M"},
+  {n:"White Benjamin",dob:"2014-02-19",g:"M"},
+  {n:"Zuberec Maxim",dob:"2015-09-03",g:"M"},
+  // U8/U7/U6
+  {n:"Balko Michal",dob:"2020-11-08",g:"M"},
+  {n:"Haberl Matej",dob:"2019-06-04",g:"M"},
+  {n:"Klinovský Bruno",dob:"2020-03-20",g:"M"},
+  {n:"Lelovič Markus",dob:"2019-03-02",g:"M"},
+  {n:"Mach Adam",dob:"2021-02-18",g:"M"},
+  {n:"Makýš Oliver",dob:"2021-07-17",g:"M"},
+  {n:"Nagy Tomáš",dob:"2019-10-19",g:"M"},
+  {n:"Ondrejička David",dob:"2021-02-10",g:"M"},
+  {n:"Pavlík Benjamín",dob:"2020-07-13",g:"M"},
+  {n:"Petrášek Ľubomír",dob:"2020-11-29",g:"M"},
+  {n:"Pitel Richard",dob:"2020-04-07",g:"M"},
+  {n:"Plocháň Juraj",dob:"2018-10-01",g:"M"},
+  {n:"Szabo Dominik",dob:"2019-03-04",g:"M"},
+  {n:"Szabo Sebastián",dob:"2021-07-26",g:"M"},
+  {n:"Šimon Alex",dob:"2021-04-22",g:"M"},
+  {n:"Šútora Matej",dob:"2018-03-07",g:"M"},
+  {n:"Velasco Alexander",dob:"2020-10-17",g:"M"},
+  {n:"Wágner Adam",dob:"2020-06-28",g:"M"},
+];
+
+let PLAYERS = [...BUILTIN_PLAYERS];
+
+// ── EXCEL IMPORT ─────────────────────────────────────────────────────────────
+const TRENER_POZICIE = new Set(['tréner','asistent trénera','vedúci tímu','lekár','fyzioterapeut','správca']);
+
+function parseDob(val) {
+  if (!val) return null;
+  // Excel date serial number
+  if (typeof val === 'number') {
+    const d = XLSX.SSF.parse_date_code(val);
+    if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  const s = String(val).trim();
+  // YYYY-MM-DD or DD.MM.YYYY
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return null;
+}
+
+function genderFromRc(rc) {
+  if (!rc) return "M";
+  const s = String(rc).replace(/\//g,'').trim();
+  if (s.length < 4) return "M";
+  const mm = parseInt(s.slice(2,4));
+  return mm >= 50 ? "F" : "M";
+}
+
+function parseSheet(sheet) {
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  if (rows.length < 2) return [];
+
+  // Nájdi header riadok (hľadáme "Meno" alebo "priezvisko")
+  let headerIdx = -1;
+  let headerRow = null;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const r = rows[i].map(c => String(c).toLowerCase().trim());
+    if (r.includes('meno') || r.includes('priezvisko')) {
+      headerIdx = i; headerRow = r; break;
+    }
+  }
+  if (headerIdx < 0) return [];
+
+  const col = name => headerRow.indexOf(name);
+  const iMeno = col('meno'), iPriev = col('priezvisko');
+  const iDob = col('dátum narodenia') !== -1 ? col('dátum narodenia') : col('datum narodenia');
+  const iPos = col('pozícia') !== -1 ? col('pozícia') : col('pozicia');
+  const iRc  = col('rč') !== -1 ? col('rč') : col('rc');
+
+  const players = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const meno = String(r[iMeno] || '').trim();
+    const priev = String(r[iPriev] || '').trim();
+    if (!meno && !priev) continue;
+
+    const pozicia = iPos >= 0 ? String(r[iPos] || '').toLowerCase().trim() : '';
+    if ([...TRENER_POZICIE].some(t => pozicia.includes(t))) continue;
+
+    const dob = iDob >= 0 ? parseDob(r[iDob]) : null;
+    if (!dob) continue;
+
+    const year = getYear(dob);
+    // Odfiltruj dospelých (nar. pred 2000 — tréneri bez pozície)
+    if (year < 2000) continue;
+
+    const rc = iRc >= 0 ? String(r[iRc] || '') : '';
+    const gender = genderFromRc(rc);
+    const fullName = priev && meno ? `${priev} ${meno}` : (meno || priev);
+
+    players.push({ n: fullName, dob, g: gender });
+  }
+  return players;
+}
+
+function handleFiles(files) {
+  if (!files || files.length === 0) return;
+  const log = document.getElementById('import-log');
+  log.style.display = 'block';
+  log.innerHTML = '';
+
+  let allPlayers = [];
+  let filesProcessed = 0;
+
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: false });
+        let fileCount = 0;
+        wb.SheetNames.forEach(sn => {
+          if (sn.toLowerCase().includes('správ')) return; // skip správcovia
+          const players = parseSheet(wb.Sheets[sn]);
+          fileCount += players.length;
+          allPlayers = allPlayers.concat(players);
+        });
+        log.innerHTML += `✓ ${file.name}: ${fileCount} hráčov<br>`;
+      } catch(err) {
+        log.innerHTML += `✗ ${file.name}: chyba — ${err.message}<br>`;
+      }
+      filesProcessed++;
+      if (filesProcessed === files.length) finalizeImport(allPlayers);
+    };
+    reader.readAsBinaryString(file);
+  });
+}
+
+function finalizeImport(players) {
+  // Deduplikácia podľa meno+dob
+  const seen = new Set();
+  const unique = players.filter(p => {
+    const key = p.n.toLowerCase() + '|' + p.dob;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+
+  // Import NAHRADÍ vstavané dáta — nie merge
+  PLAYERS = unique;
+  const log = document.getElementById('import-log');
+  log.innerHTML += `──────────────────────<br>Celkom načítaných: <strong style="color:#b8ffb8">${unique.length} hráčov</strong> (duplikáty odstránené)`;
+  document.getElementById('upload-status').textContent = `Načítané zo súborov: ${unique.length} hráčov`;
+  render();
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────────────────────
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background='rgba(76,175,80,0.18)'; });
+zone.addEventListener('dragleave', () => { zone.style.background=''; });
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.style.background='';
+  handleFiles(e.dataTransfer.files);
+});
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function getActive() {
+  return CATEGORIES.filter(c => {
+    const el = document.querySelector(`#toggle-${c.id.toLowerCase()} input`);
+    return el && el.checked;
+  });
+}
+
+function assignPlayer(player, activeTeams, hostingOn) {
+  const by = getYear(player.dob);
+  const natId = naturalCatId(by, player.g);
+  if (!natId) return { team: null, type: "unassigned" };
+  const natCat = CATEGORIES.find(c => c.id === natId);
+  if (activeTeams.find(t => t.id === natId)) return { team: natCat, type: "natural" };
+  if (hostingOn) {
+    // "hore" = staršia kategória = vyššie číslo (U11→U12) = vyšší index v CATEGORIES
+    const natIdx = CATEGORIES.findIndex(c => c.id === natId);
+    if (natIdx < CATEGORIES.length - 1) {
+      const oneUp = CATEGORIES[natIdx + 1];
+      if (activeTeams.find(t => t.id === oneUp.id)) return { team: oneUp, type: "host" };
+    }
+  }
+  return { team: null, type: "unassigned" };
+}
+
+function render() {
+  CATEGORIES.forEach(c => {
+    const lbl = document.getElementById(`toggle-${c.id.toLowerCase()}`);
+    if (!lbl) return;
+    lbl.classList.toggle('active', lbl.querySelector('input').checked);
+  });
+
+  const active = getActive();
+  const hosting = document.getElementById('hosting-cb').checked;
+  const sort = document.getElementById('sort-select').value;
+  const sortedActive = [...active].sort((a,b) => a.minYear - b.minYear);
+
+  const assignments = PLAYERS.map(p => ({ player: p, ...assignPlayer(p, active, hosting) }));
+  const assigned = assignments.filter(a => a.team).length;
+  const unassigned = assignments.filter(a => !a.team).length;
+
+  // Summary
+  const sb = document.getElementById('summary-bar');
+  if (active.length === 0) {
+    sb.style.display = 'none';
+    document.getElementById('output').innerHTML = `<div class="no-teams">Zaškrtni aspoň jeden tím hore ☝️</div>`;
+    return;
+  }
+  sb.style.display = 'flex';
+  sb.innerHTML = `
+    <div class="summary-item"><div class="summary-num">${PLAYERS.length}</div><div class="summary-label">Hráčov celkom</div></div>
+    <span class="sep">|</span>
+    <div class="summary-item"><div class="summary-num" style="color:#4caf50">${assigned}</div><div class="summary-label">Zaradených</div></div>
+    <div class="summary-item"><div class="summary-num" style="color:#e74c3c">${unassigned}</div><div class="summary-label">Nezaradených</div></div>
+    <span class="sep">|</span>
+    <div class="summary-item"><div class="summary-num" style="color:#f39c12">${active.length}</div><div class="summary-label">Aktívnych tímov</div></div>
+    ${hosting ? '<span style="font-size:11px;color:#aaa">⚡ Ostaršenie zapnuté</span>' : ''}
+  `;
+
+  let html = '<div class="teams-grid">';
+  for (const team of sortedActive) {
+    const members = assignments.filter(a => a.team && a.team.id === team.id);
+    let sorted = [...members];
+    if (sort === 'alpha') sorted.sort((a,b) => a.player.n.localeCompare(b.player.n,'sk'));
+    else sorted.sort((a,b) => a.player.dob.localeCompare(b.player.dob));
+
+    const cnt = members.length;
+    const warnTxt = cnt < 11 ? `⚠️ Iba ${cnt} hráčov — nestačí na zostavu`
+                  : cnt < 14 ? `⚠️ ${cnt} hráčov — tesne, odporúča sa 14+`
+                  : `✅ ${cnt} hráčov — dostatočný počet`;
+    const warnCls = cnt < 14 ? '' : 'ok';
+
+    const nat = sorted.filter(a => a.type === 'natural');
+    const hst = sorted.filter(a => a.type === 'host');
+    const cat = CATEGORIES.find(c => c.id === team.id);
+
+    html += `<div class="team-card t-${team.id.toLowerCase()}" style="--tc:${cat.color}">
+      <div class="team-header">
+        <div><div class="team-name">${team.id}</div><div class="team-years-label">nar. ${cat.minYear} a mladší</div></div>
+        <div><div class="count-num">${cnt}</div><div class="count-label">hráčov</div></div>
+      </div>
+      <div class="team-warning ${warnCls}">${warnTxt}</div>
+      <div class="player-list">`;
+
+    if (nat.length > 0) {
+      if (hst.length > 0) html += `<div class="section-title">Prirodzení (${nat.length})</div>`;
+      for (const a of nat) {
+        const yr = getYear(a.player.dob);
+        html += `<div class="player-row">
+          <span class="player-name">${a.player.n}</span>
+          ${a.player.g==='F'?'<span class="player-badge badge-girl">♀</span>':''}
+          <span class="player-year">${yr}</span></div>`;
+      }
+    }
+    if (hst.length > 0) {
+      html += `<div class="section-title">Hosťujúci (${hst.length})</div>`;
+      for (const a of hst) {
+        const yr = getYear(a.player.dob);
+        const nc = naturalCatId(yr, a.player.g);
+        html += `<div class="player-row">
+          <span class="player-name">${a.player.n}</span>
+          ${a.player.g==='F'?'<span class="player-badge badge-girl">♀</span>':''}
+          <span class="player-badge badge-host">z ${nc}</span>
+          <span class="player-year">${yr}</span></div>`;
+      }
+    }
+    if (cnt === 0) html += `<div style="padding:18px 14px;color:#ccc;font-size:12px;text-align:center">Žiadni hráči</div>`;
+    html += `</div></div>`;
+  }
+  html += '</div>';
+
+  // Nezaradení
+  const unas = assignments.filter(a => !a.team);
+  if (unas.length > 0) {
+    let su = [...unas];
+    if (sort === 'alpha') su.sort((a,b) => a.player.n.localeCompare(b.player.n,'sk'));
+    else su.sort((a,b) => a.player.dob.localeCompare(b.player.dob));
+    html += `<div class="unassigned-card">
+      <div class="unassigned-header">
+        <div class="unassigned-title">⛔ Nezaradení hráči</div>
+        <div class="unassigned-count">${unas.length}</div>
+      </div>
+      <div class="player-list">
+        <div class="section-title">Hráči bez aktívneho tímu pre ich ročník</div>`;
+    for (const a of su) {
+      const yr = getYear(a.player.dob);
+      const nc = naturalCatId(yr, a.player.g);
+      html += `<div class="player-row">
+        <span class="player-name">${a.player.n}</span>
+        ${a.player.g==='F'?'<span class="player-badge badge-girl">♀</span>':''}
+        <span style="font-size:11px;color:#bbb;flex:1;text-align:right">patrí do ${nc||'?'}</span>
+        <span class="player-year">${yr}</span></div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  document.getElementById('output').innerHTML = html;
+}
+
+// Init
+window.onload = () => {
+  ['u9','u10','u11','u12'].forEach(id => {
+    const el = document.querySelector(`#toggle-${id} input`);
+    if (el) el.checked = true;
+  });
+  render();
+};
+</script>
+</body>
+</html>
