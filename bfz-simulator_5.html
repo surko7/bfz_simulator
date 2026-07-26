@@ -270,15 +270,12 @@ const BUILTIN_PLAYERS = [
   {n:"Drozd Alexander",dob:"2011-01-01",g:"M"},
   {n:"Dúbravka Dávid",dob:"2011-01-01",g:"M"},
   {n:"Faix Filip",dob:"2011-07-28",g:"M"},
-  {n:"Glasnak Filip",dob:"2013-03-24",g:"M"},
   {n:"Hecht Jakub",dob:"2012-05-25",g:"M"},
-  {n:"Homola Lucas",dob:"2012-08-14",g:"M"},
+  {n:"Hapl Alex",dob:"2010-03-31",g:"M"},
   {n:"Kollár Artur",dob:"2011-09-05",g:"M"},
   {n:"Košťany Ondrej",dob:"2011-09-18",g:"M"},
-  {n:"Kovalinka Richard",dob:"2012-10-02",g:"M"},
   {n:"Kubín Derek",dob:"2011-08-02",g:"M"},
   {n:"Macháč Michal",dob:"2011-04-27",g:"M"},
-  {n:"Mravík Samuel",dob:"2012-08-26",g:"M"},
   {n:"Mrva Nikolas",dob:"2013-06-24",g:"M"},
   {n:"Orság Tomáš",dob:"2011-08-27",g:"M"},
   {n:"Paulík Jakub",dob:"2012-10-11",g:"M"},
@@ -608,7 +605,9 @@ function render() {
 
 // Init
 window.onload = () => {
-  ['u9','u10','u11','u12'].forEach(id => {
+  // Sezóna 2026/2027: prihlásené predprípravka (U6-U8) + U9, U10, U13, U15, U17
+  // U11, U12, U14, U16 tento rok NEprihlasujeme
+  ['u6','u7','u8','u9','u10','u13','u15','u17'].forEach(id => {
     const el = document.querySelector(`#toggle-${id} input`);
     if (el) el.checked = true;
   });
