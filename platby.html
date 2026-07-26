@@ -196,7 +196,7 @@ tr.row-expand:hover td { background: #f9f9f9; cursor: pointer; }
         <th onclick="sortBy('meno')">Meno</th>
         <th onclick="sortBy('tim')">Tím</th>
         <th onclick="sortBy('status')">Stav</th>
-        <th>Dôvod</th>
+        <th onclick="sortBy('dovod_sort')">Dôvod</th>
         <th onclick="sortBy('predpis_sort')">Predpis</th>
         <th onclick="sortBy('uhradene')">Uhradené</th>
         <th onclick="sortBy('zostatok_sort')">Zostatok</th>
@@ -244,7 +244,7 @@ function sortBy(col) {
   userSorted = true;
   if (sortCol===col) sortDesc=!sortDesc; else { sortCol=col; sortDesc=false; }
   document.querySelectorAll('th').forEach(th=>th.classList.remove('sorted','desc'));
-  const cols=['meno','tim','status','predpis_sort','uhradene','zostatok_sort','pocet_uhrad','posledna_uhrada','kontakt'];
+  const cols=['meno','tim','status','dovod_sort','predpis_sort','uhradene','zostatok_sort','pocet_uhrad','posledna_uhrada','kontakt'];
   const i=cols.indexOf(col);
   if(i>=0){ document.querySelectorAll('th')[i].classList.add('sorted'); if(sortDesc) document.querySelectorAll('th')[i].classList.add('desc'); }
   render();
@@ -304,6 +304,7 @@ function render() {
     ...r,
     predpis_sort: Number(r.ciastka || r.virtual_predpis || 0),
     zostatok_sort: Number(r.zostatok ?? (r.status==='bez_eos' ? r.virtual_predpis||0 : 0)),
+    dovod_sort: getDovod(r),
   }));
 
   rows.sort((a,b) => {
