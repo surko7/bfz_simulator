@@ -154,8 +154,8 @@ tr.neuplne:hover td { background: #fff3cc; }
       <input class="search-input" type="text" id="search-input" placeholder="🔍 Hľadať meno..." oninput="renderDB()">
       <div class="right-controls">
         <label class="editmode-toggle"><input type="checkbox" id="edit-toggle" onchange="toggleEditMode()"> ✏️ Editovať</label>
-        <button class="save-btn" onclick="saveLocal()" title="Uloží zmeny len v tomto prehliadači na tomto počítači">💾 Dočasne uložiť (len tento prehliadač)</button>
-        <button class="save-btn secondary" onclick="downloadUpdated()" title="Stiahne nový db.html so zmenami - treba ho nahradiť v priečinku a spraviť git push">⬇️ Stiahnuť aktualizovaný súbor (na nahratie na GitHub)</button>
+        <button class="save-btn" id="save-github-btn" onclick="saveToGitHub()" style="background:#27ae60;font-weight:800">☁️ Uložiť zmeny (live)</button>
+        <button class="save-btn" onclick="saveLocal()" style="background:#888;font-size:11px" title="Len záložná kópia v tomto prehliadači, neodošle sa na GitHub">💾 Záloha (len tento prehliadač)</button>
       </div>
     </div>
 
@@ -360,10 +360,57 @@ function updateField(idx, field, value) {
 
 function saveLocal() {
   localStorage.setItem('bfz_db_local', JSON.stringify({data: DATA, savedAt: new Date().toLocaleString('sk-SK')}));
-  alert('Uložené v tomto prehliadači. Pri ďalšom otvorení na tomto počítači sa ponúkne obnovenie.');
+  alert('Uložené len v tomto prehliadači (záloha). Toto NEODOŠLE zmeny na GitHub.');
+}
+
+const WORKER_URL = 'https://bfz-db-save.surko7.workers.dev/';
+
+async function saveToGitHub() {
+  const btn = document.getElementById('save-github-btn');
+  const origText = btn.textContent;
+  btn.textContent = '⏳ Ukladám...';
+  btn.disabled = true;
+  try {
+    // Zasifruj aktualne DATA
+    const enc = new TextEncoder();
+    const jsonBytes = enc.encode(JSON.stringify(DATA));
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(SESSION_PASSWORD, salt, true);
+    const ctBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, jsonBytes);
+    const newSalt = bufToB64(salt), newIv = bufToB64(iv), newCt = bufToB64(ctBuf);
+
+    // Nacitaj aktualny HTML tejto stranky a nahrad ENC blok
+    const resp = await fetch(location.href);
+    let html = await resp.text();
+    html = html.replace(/const ENC = \{"salt":"[^"]*","iv":"[^"]*","ct":"[^"]*"\}/,
+      `const ENC = {"salt":"${newSalt}","iv":"${newIv}","ct":"${newCt}"}`);
+
+    // Posli na Worker, ktory to zapise do GitHubu
+    const saveResp = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ password: SESSION_PASSWORD, content: html })
+    });
+    const result = await saveResp.json();
+
+    if (result.success) {
+      btn.textContent = '✅ Uložené!';
+      setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2500);
+    } else {
+      alert('Chyba pri ukladaní: ' + (result.error || 'neznáma chyba'));
+      btn.textContent = origText;
+      btn.disabled = false;
+    }
+  } catch (e) {
+    alert('Chyba: ' + e.message);
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
 }
 
 async function downloadUpdated() {
+
   if (!SESSION_PASSWORD) { alert('Chyba relácie hesla.'); return; }
   const resp = await fetch(location.href);
   let html = await resp.text();
