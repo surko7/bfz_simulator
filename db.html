@@ -155,7 +155,6 @@ tr.neuplne:hover td { background: #fff3cc; }
       <div class="right-controls">
         <label class="editmode-toggle"><input type="checkbox" id="edit-toggle" onchange="toggleEditMode()"> ✏️ Editovať</label>
         <button class="save-btn" id="save-github-btn" onclick="saveToGitHub()" style="background:#27ae60;font-weight:800">☁️ Uložiť zmeny (live)</button>
-        <button class="save-btn" onclick="saveLocal()" style="background:#888;font-size:11px" title="Len záložná kópia v tomto prehliadači, neodošle sa na GitHub">💾 Záloha (len tento prehliadač)</button>
       </div>
     </div>
 
@@ -356,11 +355,14 @@ function renderDB() {
 
 function updateField(idx, field, value) {
   DATA[idx][field] = value;
-}
 
-function saveLocal() {
-  localStorage.setItem('bfz_db_local', JSON.stringify({data: DATA, savedAt: new Date().toLocaleString('sk-SK')}));
-  alert('Uložené len v tomto prehliadači (záloha). Toto NEODOŠLE zmeny na GitHub.');
+  // Automaticka synchronizacia: zostatok urcuje vymahat_dlh (zdroj pravdy = suma, nie naopak)
+  if (field === 'zostatok') {
+    const z = Number(value);
+    DATA[idx]['vymahat_dlh'] = (isNaN(z) || z <= 0) ? 'nie' : 'áno';
+  }
+
+  renderDB(); // okamzity prepocet suhrnnych kariet a dlznej sumy po kazdej uprave
 }
 
 const WORKER_URL = 'https://bfz-db-save.surko7.workers.dev/';
@@ -396,6 +398,7 @@ async function saveToGitHub() {
 
     if (result.success) {
       btn.textContent = '✅ Uložené!';
+      renderDB();
       setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2500);
     } else {
       alert('Chyba pri ukladaní: ' + (result.error || 'neznáma chyba'));
